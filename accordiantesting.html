@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>SharePoint Tree View</title>
+<style>
+    body { font-family: Arial, sans-serif; padding: 15px; }
+    .node { cursor: pointer; padding: 5px; border-radius: 4px; }
+    .node:hover { background: #f1f1f1; }
+    .children { display: none; margin-left: 20px; }
+    .expanded > .icon { transform: rotate(90deg); }
+    .icon {
+        display: inline-block;
+        margin-right: 6px;
+        transition: 0.2s;
+    }
+</style>
+</head>
+<body>
+
+<h2>Tree View</h2>
+<div id="tree"></div>
+
+<script>
+// ===============================
+// CONFIG – CHANGE THESE VALUES
+// ===============================
+const siteUrl = "https://eceos2.sharepoint.com/sites/SPFxRnD/SitePages/najmi-test.aspx";
+const listName = "testing list";   // Example: "Projects"
+
+// ===============================
+// FETCH LIST ITEMS
+// ===============================
+async function getListItems() {
+    const url = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Title,level2,level3&$orderby=Title,level2,level3`;
+
+    const response = await fetch(url, {
+        headers: { "Accept": "application/json; odata=verbose" },
+        credentials: "same-origin"
+    });
+
+    const data = await response.json();
+    return data.d.results;
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(items) {
+    const tree = {};
+
+    items.forEach(item => {
+        const l1 = item.Title;
+        const l2 = item.level2 || "";
+        const l3 = item.level3 || "";
+
+        if (!tree[l1]) tree[l1] = {};
+        if (l2) {
+            if (!tree[l1][l2]) tree[l1][l2] = [];
+            if (l3) tree[l1][l2].push(l3);
+        }
+    });
+
+    return tree;
+}
+
+// ===============================
+// RENDER HTML TREE
+// ===============================
+function renderTree(treeData) {
+    const container = document.getElementById("tree");
+
+    Object.keys(treeData).forEach(level1 => {
+        const l1Node = createNode(level1);
+
+        const l2Container = document.createElement("div");
+        l2Container.className = "children";
+
+        Object.keys(treeData[level1]).forEach(level2 => {
+            const l2Node = createNode(level2);
+
+            const l3Container = document.createElement("div");
+            l3Container.className = "children";
+
+            treeData[level1][level2].forEach(level3 => {
+                const l3Node = document.createElement("div");
+                l3Node.textContent = level3;
+                l3Node.className = "node";
+                l3Node.style.marginLeft = "20px";
+                l3Container.appendChild(l3Node);
+            });
+
+            l2Node.appendChild(l3Container);
+            l2Container.appendChild(l2Node);
+        });
+
+        l1Node.appendChild(l2Container);
+        container.appendChild(l1Node);
+    });
+}
+
+// ===============================
+// CREATE NODE ELEMENT
+// ===============================
+function createNode(text) {
+    const div = document.createElement("div");
+    div.className = "node";
+
+    const icon = document.createElement("span");
+    icon.className = "icon";
+    icon.textContent = "▶";
+
+    const label = document.createElement("span");
+    label.textContent = text;
+
+    div.appendChild(icon);
+    div.appendChild(label);
+
+    div.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const children = this.querySelector(".children");
+        if (children) {
+            const isVisible = children.style.display === "block";
+            children.style.display = isVisible ? "none" : "block";
+            this.classList.toggle("expanded", !isVisible);
+        }
+    });
+
+    return div;
+}
+
+// ===============================
+// INIT
+// ===============================
+(async function () {
+    const items = await getListItems();
+    const tree = buildTree(items);
+    renderTree(tree);
+})();
+</script>
+
+</body>
+</html>
